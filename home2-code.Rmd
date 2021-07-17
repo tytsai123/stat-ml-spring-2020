@@ -1,0 +1,110 @@
+---
+title: "hw2-code"
+author: "Ting-Yen Tsai"
+date: "4/24/2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem 1-1
+```{r 1-1}
+library(ISLR)
+library(stargazer)
+# 1 linear model 1
+linear_m_1 <- lm(mpg ~ cylinders + displacement + horsepower + weight + acceleration + year + origin, data = Auto)
+stargazer::stargazer(linear_m_1, type = 'text')
+```
+## Problem 1-2
+```{r 1-2}
+# 2 resubstitution error
+summary(linear_m_1)$sigma
+```
+## Problem 1-3
+```{r 1-3}
+# 3 prediction
+m_1_c <- rep(0, 8)
+for (i in 1:8){
+  m_1_c[i] <- summary(linear_m_1)$coefficient[i]
+}
+prediction <- m_1_c[1] + 3 * m_1_c[2] + 100 * m_1_c[3] + 85 * m_1_c[4] + 3000 * m_1_c[5] + 20 * m_1_c[6] + 80 * m_1_c[7] + 3 * m_1_c[8]
+prediction
+```
+## Problem 1-4
+```{r 1-4}
+# 4 difference in mpg between JP and US cars (ceteris paribus)
+2 * m_1_c[7]
+```
+```{r 1-5}
+10 * m_1_c[4]
+```
+## Problem 2-1
+```{r 2-1-1}
+library(dplyr)
+data(Auto)
+Auto <- Auto %>%
+  mutate(US = ifelse(origin == 1, 1, 0), EU = ifelse(origin == 2, 1, 0))
+linear_m_2 <- lm(mpg ~ US + EU, data = Auto)
+stargazer::stargazer(linear_m_2, type = 'text')
+```
+```{r 2-1-2}
+summary(linear_m_2)$coefficients[1] # Japanese car
+(summary(linear_m_2)$coefficients[1] + summary(linear_m_2)$coefficients[2]) # American car
+(summary(linear_m_2)$coefficients[1] + summary(linear_m_2)$coefficients[3]) # European car
+```
+## Problem 2-2
+```{r 2-2}
+Auto <- Auto %>%
+  mutate(JP = ifelse(origin == 3, 1, 0))
+linear_m_3 <- lm(mpg ~ EU + JP, data = Auto)
+stargazer::stargazer(linear_m_3, type = 'text')
+```
+```{r 2-2-2}
+(summary(linear_m_3)$coefficients[1] + summary(linear_m_3)$coefficients[3]) # Japanese car
+summary(linear_m_3)$coefficients[1] # American car
+(summary(linear_m_3)$coefficients[1] + summary(linear_m_3)$coefficients[2]) # European car
+```
+## Problem 2-3
+```{r 2-3-1}
+Auto <- Auto %>%
+  mutate(country_US = ifelse(origin == 1, 1, -1)) %>%
+  mutate(country_EU = ifelse(origin == 2, 1, -1))
+linear_m_4 <- lm(mpg ~ country_US + country_EU, data = Auto)
+stargazer::stargazer(linear_m_4, type = 'text')
+```
+```{r 2-3-2}
+(summary(linear_m_4)$coefficients[1] -
+summary(linear_m_4)$coefficients[2] -
+summary(linear_m_4)$coefficients[3])  # Japanese car
+(summary(linear_m_4)$coefficients[1] +
+summary(linear_m_4)$coefficients[2] -
+summary(linear_m_4)$coefficients[3])  # American car
+(summary(linear_m_4)$coefficients[1] -
+summary(linear_m_4)$coefficients[2] + summary(linear_m_4)$coefficients[3])  # European car
+```
+## Problem 2-4
+```{r 2-4-1}
+Auto <- Auto %>%
+  mutate(origin = ifelse(origin == 3, 0, ifelse(origin == 1, 1, 2)))
+linear_m_5 <- lm(mpg ~ origin, data = Auto)
+stargazer::stargazer(linear_m_5, type = 'text')
+```
+```{r 2-4-2}
+summary(linear_m_5)$coefficients[1] # Japanese car
+(summary(linear_m_5)$coefficients[1] +
+summary(linear_m_5)$coefficients[2]) # American car
+(summary(linear_m_5)$coefficients[1] + 2 * summary(linear_m_5)$coefficients[2]) # European car
+```
+
+## Problem 3-1
+```{r 3-1}
+-165.1 + 64 * 4.8
+```
+## Problem 3-2
+```{r 3-2}
+4.8 / 12
+```
