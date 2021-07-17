@@ -1,0 +1,250 @@
+---
+title: "home1-code"
+author: "Ting-Yen Tsai"
+date: "4/13/2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r import data1}
+library(ggplot2)
+library(dplyr)
+source("D:\\Users\\user\\Desktop\\home1-part1-data.R")
+```
+
+
+## Part 1 Problem(a)
+
+```{r 1a}
+ksmooth.train <- function(x.train, y.train, kernel = c("box", "normal"), bandwidth = 0.5, CV = FALSE){
+  len <- length(x.train)
+  # initialize yhat.train vector
+  yhat.train <- rep(0, len)
+  for (i in 1:len){
+    range <- c(1:len)
+    if (CV == TRUE){
+      # remove a point (ith point)
+      range <- range[-i]
+    }else{
+      # don't do anything
+    }
+    if (kernel == "normal"){
+      # gaussian pdf
+      sigma <- (0.25 * bandwidth) / qnorm(0.75, 0, 1)
+      kf <- function(x) dnorm(x, 0, sigma)
+    }else{
+      # uniform pdf
+      kf <- function(x) 1/bandwidth
+    }  
+    # initialization
+    numerator <- 0
+    denominator <- 0
+    for (j in range){
+      numerator <- numerator + y.train[j] * kf(x.train[j] - x.train[i])
+      denominator <- denominator + kf(x.train[j] - x.train[i])
+    }
+    yhat.train[i] <- numerator / denominator
+  }
+  answer <- list("x" = x.train, "yhat" = yhat.train)
+  return(answer)
+}
+```
+
+## Part 1 Problem (b)
+
+
+```{r 1b}
+ksmooth.predict <- function(ksmooth.train.out, x.query){
+  if (x.query <= max(ksmooth.train.out$x) && x.query >= min(ksmooth.train.out$x)){
+    # interpolation
+    ans <- approx(ksmooth.train.out$x, ksmooth.train.out$yhat, xout = x.query, method = 'linear', rule = 2, ties = min)
+  }else{
+    # exterpolation
+    ans <- approx(ksmooth.train.out$x, ksmooth.train.out$yhat, xout = x.query, method = 'constant', rule = 2, ties = min)
+  }
+  return(ans)
+}
+```
+
+
+## Part 1 Problem (c)
+
+```{r 1c}
+smooth_c <- ksmooth.train(Wage.train$age, Wage.train$wage, kernel = "normal", bandwidth = 3)
+rss <- function(y, yhat){
+  answer <- 0
+  for (k in 1:length(y)){
+    answer <- answer + (y[k] - yhat[k])^2
+  }
+  return(answer)  # Residual Sum of Squares
+}
+rss(Wage.train$wage, smooth_c$yhat) # RSS = 1625121
+plot(Wage.train$age, Wage.train$wage, main="Scatterplot for Training Sample", pch=19, cex = .5)
+lines(smooth_c$yhat, lwd=2, col="orange")
+```
+
+## Part 1 Problem (d)
+```{r 1d}
+# predict results for testing samples by previous smoothing
+model_d <- ksmooth.predict(smooth_c, Wage.test$age)
+rss(Wage.test$wage, model_d$y) # RSS = 3168000
+plot(Wage.test$age, Wage.test$wage, main="Scatterplot for Testing Sample", pch=19, cex = .5)
+lines(model_d$y, lwd=2, col="orange")
+```
+
+## Part 1 Problem (e)
+```{r 1e}
+# resubstitution estimate
+ESE <- rep(0, 10)
+for(i in 1:10){
+  smooth_e <- ksmooth.train(Wage.train$age, Wage.train$wage, kernel = "normal", bandwidth = i)
+  ESE[i] <- rss(Wage.train$wage, smooth_e$yhat) / length(Wage.train$age)
+}
+ESE # Expected Squared Prediction Error 
+plot(ESE, type = "o", xlab = "Bandwidth", 
+     ylab = "Expected Squared Prediction Error",
+     col = "blue")
+```
+
+## Part 1 Problem (f)
+```{r 1f}
+# LOOCV estimate
+LOOCV_ESE <- rep(0, 10)
+for(i in 1:10){
+  smooth_f <- ksmooth.train(Wage.train$age, Wage.train$wage, kernel = "normal",
+                            bandwidth = i, CV = TRUE)
+  LOOCV_ESE[i] <- rss(Wage.train$wage, smooth_f$yhat) / (length(Wage.train$age) - 1)
+}
+LOOCV_ESE # Expected Squared Prediction Error (by LOOCV)
+plot(LOOCV_ESE, type = "o", xlab = "Bandwidth", ylab = "LOOCV_ESE", col = "blue")
+# Optimal Bandwidth = 6
+```
+
+## Part 1 Problem (g)
+```{r 1g}
+ESE_test <- rep(0, 10)
+for(i in 1:10){
+  smooth_g <- ksmooth.train(Wage.train$age, Wage.train$wage, kernel = "normal",
+                            bandwidth = i)
+  model_g <- ksmooth.predict(smooth_g, Wage.test$age)
+  ESE_test[i] <- rss(Wage.test$wage, model_g$y) / length(Wage.test$wage)
+}
+ESE_test
+plot(ESE_test, type = "o", xlab = "Bandwidth", ylab = "ESE_test", col = "blue")
+# Optimal Bandwidth = 8
+```
+
+## Part 1 Problem (h)
+```{r 1h}
+# add variable "fold" in the dataframe
+Wage.train <- Wage.train %>%
+  mutate(fold = fold)
+# 5-fold Cross Validation
+fivefold <- function(j){
+  cv_err <- 0
+  for (i in 1:5){
+    # split training samples
+    Wage.train.v <- Wage.train[Wage.train$fold == i,]
+    Wage.train.t <- Wage.train[Wage.train$fold != i,]
+    smooth_h <- ksmooth.train(Wage.train.t$age, 
+                              Wage.train.t$wage, 
+                              kernel = "normal", bandwidth = j)
+    model_h <- ksmooth.predict(smooth_h, Wage.train.v$age)
+    cv_err <-  cv_err + rss(Wage.train.v$wage, model_h$y)/length(Wage.train.v$wage)
+  }
+  return(cv_err/5) # take the average
+}
+cv_err_h <- rep(0, 10)
+for (j in 1:10){ # try bandwidth from 1 to 10
+  cv_err_h[j] <- fivefold(j)
+}
+cv_err_h #ESE for each bandwidth
+plot(cv_err_h, type = "o", xlab = "Bandwidth", ylab = "5-fold CV_ESE", col = "blue")
+# Optimal Bandwidth = 9
+```
+
+## Part 2 Problem (b)
+```{r import data2}
+source("D:\\Users\\user\\Desktop\\home1-part2-data.R")
+```
+```{r functions for part 2}
+# Gaussian kernel
+kf <- function(x, sigma) dnorm(x, 0, sigma)
+# calculate norm
+snorm <- function(x) sum(x^2)
+# calculate denominator
+denominator <- function (i, sigma){
+  sum <- 0
+  for (j in 1:length(x.train)){
+    sum <- sum + kf(x.train[i] - x.train[j], sigma)
+  }
+  return(sum)
+}
+```
+```{r}
+# initialization
+squared_bias <- rep(0, 200)
+variance <- rep(0, 200)
+total_error <- rep(0, 200)
+# test every sigma
+for (k in 1:200){
+  sigma <- 0.01 + 0.01 * (k - 1)
+  # calculate weight matrix W
+  W_formula <- function(i, j) {
+    kf(x.train[i] - x.train[j], sigma)/denominator(i, sigma)
+  }
+  rows <- 1:length(x.train)
+  cols <- 1:length(x.train)
+  W <- outer(rows, cols, FUN = W_formula)
+  I <- diag(length(x.train))
+  # calculate sqaured bias and variance
+  squared_bias[k] <- snorm((W - I) %*% f) / length(x.train)
+  variance[k] <- noise.var %*% sum(diag(t(W) %*% W)) / length(x.train)
+  total_error[k] <- squared_bias[k] + variance[k]
+}
+answer <- list("Squared Bias" = squared_bias, "Variance" = variance, "Total Error" = total_error)
+answer
+```
+```{r 2b}
+df <- data.frame("sigma" = seq(from = 0.01, to = 2, by = 0.01), 
+"sb" = squared_bias, "var" = variance, "total" = total_error)
+ggplot(data = df, aes(x = sigma, y = sb)) + geom_line()
+ggplot(data = df, aes(x = sigma, y = var)) + geom_line()
+ggplot(data = df, aes(x = sigma, y = total_error)) + geom_line()
+ggplot(data = df, aes(x = sigma)) +
+  geom_line(aes(y = sb, colour = "Squared Bias"), lwd = 1) +
+  geom_line(aes(y = variance, colour = "Variance"), lwd = 1) +
+  geom_line(aes(y = total_error, colour = "Total"), lwd = 1) +
+  scale_colour_manual("", breaks = c("Squared Bias", "Variance", "Total"), values = c("red", "blue", "purple"))
+# optimal choice for standard deviation
+0.01 + 0.01*(which.min(total_error)-1) # 0.74
+```
+
+## Part 2 Problem (c)
+```{r optimal sigma}
+sigma <- 0.74 # optimal sigma from 2(b)
+rows <- 1:length(x.train)
+cols <- 1:length(x.train)
+W_formula <- function(i, j) {
+  kf(x.train[i] - x.train[j], sigma)/denominator(i, sigma)[74]
+}
+W <- outer(rows, cols, FUN = W_formula)
+# calculate
+fhat <- W %*% y.train
+# plot training samples
+plot(x.train, y.train, main="Scatterplot for Training Sample", pch=19, cex = .5, ylim = c(-4, 6))
+# plot fhat
+plot(x.train, fhat, main="Response Values Predicted By Estimated Function", pch=19, cex = .5, ylim = c(-4, 6), col = "orange")
+# plot f
+plot(x.train, f, main="Response Values Predicted By Real Function", pch=19, cex = .5, ylim = c(-4, 6), col = "green")
+# combined graph
+plot(x.train, y.train, main="Scatterplot for Training Sample", pch=19, cex = .5, ylim = c(-4, 6))
+lines(fhat, lwd=2, col = "orange")
+lines(f, lwd=2 , col = "green")
+```
+
