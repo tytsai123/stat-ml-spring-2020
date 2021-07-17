@@ -1,0 +1,99 @@
+---
+title: "home4-code"
+author: "Ting-Yen Tsai"
+date: "5/25/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem 4 (b)
+```{r prep}
+source("D:\\Users\\user\\Desktop\\Carseats-split.R")
+```
+```{r 4b}
+set.seed(1)
+library(tree)
+library(MASS)
+tree.carseats.train <- tree(Sales~., data = Carseats.train)
+summary(tree.carseats.train)
+plot(tree.carseats.train)
+text(tree.carseats.train, pretty = 0)
+title(main = "Unpruned Regression Tree")
+# test set MSE
+yhat <- predict(tree.carseats.train, newdata = Carseats.test, type = "vector")
+# function to get MSE
+mse <- function(real, predict){
+  sum <- 0
+  for (i in length(real)){
+    sum <- sum + (real[i] - predict[i])^2
+  }
+  return(sum)
+}
+mse(Carseats.test$Sales, yhat)
+```
+The test MSE is 0.2896397.
+
+
+## Problem 4 (c)
+```{r 4c}
+# cross-validation
+cv.carseats <- cv.tree(tree.carseats.train, FUN = prune.tree)
+plot(cv.carseats$size, sqrt(cv.carseats$dev / nrow(Carseats.train)), type = "b", xlab = "Tree Size", ylab = "CV-MSE")
+# prune tree
+prune.carseats <- prune.tree(tree.carseats.train, best = 6)
+summary(prune.carseats)
+plot(prune.carseats)
+text(prune.carseats, pretty = 0)
+title(main = "Pruned Regression Tree")
+test.prune <- predict(prune.carseats, newdata = Carseats.test, type = "vector")
+mse(test.prune, Carseats.test$Sales)
+```
+The most complex tree is chosen by cross-validation, but we believe it would have a large test MSE, so we chose to prune tree down to 6 nodes, and found that pruning lowers the test MSE significantly.
+
+## Problem 4 (d)
+```{r 4d}
+library(randomForest)
+set.seed(1)
+bag.carseats = randomForest(Sales ~., data = Carseats.train, mtry=ncol(Carseats.train)-1, importance=TRUE) 
+bag.carseats
+# predict sales for test set
+yhat.bag = predict(bag.carseats, newdata = Carseats.test)
+plot(yhat.bag, Carseats.test$Sales)
+abline(0,1)
+mse(yhat.bag, Carseats.test$Sales)
+importance(bag.carseats)
+varImpPlot(bag.carseats)
+```
+
+The test MSE is 0.4856255. The two most important predictors are ShelveLoc and Price, which is reasonable since they are the only two predictors used in the pruned tree.
+
+
+## Problem 4 (e)
+```{r 4e}
+library(randomForest)
+set.seed(1)
+rf.carseats = randomForest(Sales ~., data = Carseats.train, mtry = 4, importance=TRUE) # choose mtry = sqrt(10)
+rf.carseats
+
+# predict sales for test set
+yhat.rf = predict(rf.carseats, newdata = Carseats.test)
+plot(yhat.rf, Carseats.test$Sales)
+abline(0,1)
+mse(yhat.rf, Carseats.test$Sales)
+importance(rf.carseats)
+varImpPlot (rf.carseats)
+
+# effects of m (the number of variables considered at each split)
+m <- rep(0, 10)
+for (i in 1:10) {
+  rf.carseats.i = randomForest(Sales ~., data = Carseats.train, mtry = i, importance=TRUE) 
+  yhat.rf.i = predict(rf.carseats.i, newdata = Carseats.test)
+  m[i] <- mse(yhat.rf.i, Carseats.test$Sales)
+}
+plot(c(1:10), m)
+```
+
+The test MSE is 0.8614903. The two most important predictors are ShelveLoc and Price. The error rate is monotonically decreasing as m gets larger, because we can consider more variables for each split, and the tree can fits the data more.

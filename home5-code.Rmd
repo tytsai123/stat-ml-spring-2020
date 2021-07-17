@@ -1,0 +1,110 @@
+---
+title: "home5-code"
+author: "Ting-Yen Tsai"
+date: "2020/6/7"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem 2: ISLR 8.4.3
+
+```{r}
+x <- seq(0, 1, 0.01)
+# Gini Index - Blue
+G <- function(x) 2*x*(1-x)
+choice <- c(x, 1-x)
+# Classification Error - Red
+E <- function(x) {
+  sapply(x, function(x) {
+    y = numeric()
+    if (x <= 0.5)
+      y = x
+    else
+      y = 1 - x
+    return(y)
+  })
+}
+# Entropy - Green
+D <- function(x) -x*log(x) - (1 - x)*log(1 - x)
+# plot
+matplot(x,cbind(G(x), E(x), D(x)), type="l", col=c("blue","red", "green"))
+```
+
+
+
+## Problem 3
+
+## ISLR 8.4.9 (a)
+
+```{r a}
+library(ISLR)
+library(dplyr)
+library(compare)
+data(OJ)
+set.seed(1)
+num <- sample(1:1070, 800, replace=FALSE)
+train.set <- OJ[num,]
+test.set <- OJ[-num,]
+```
+
+## ISLR 8.4.9 (b)
+
+```{r b}
+# build regression tree
+library(tree)
+model <- tree(Purchase ~., data = train.set)
+# summary
+summary(model)
+```
+
+The training error rate is 15.88% and there are 9 terminal nodes.
+
+## ISLR 8.4.9 (c)
+
+```{r c}
+model
+```
+
+`LoyalCH < 0.0356415 59   10.14 MM ( 0.01695 0.98305 ) *` is a terminal node. It is the child for the split `LoyalCH < 0.280875 177  140.50 MM ( 0.13559 0.86441 ) ` and the root node `LoyalCH < 0.5036 365  441.60 MM ( 0.29315 0.70685 )`.
+
+
+## ISLR 8.4.9 (d)
+
+```{r d}
+plot(model)
+text(model, pretty = 0)
+title(main = "Unpruned Classification Tree")
+```
+
+From the plot we may say `LoyalCH` is a important classifier becase it does several splits. The observations with small `LoyalCH` tend to buy MM, but if the `PriceDiff` is big (maybe CH is on sale) or `SpecialCH` is big (CH is special), then they buy CH. On the other hand, the observations with bigger `LoyalCH` tend to buy CH, but when `ListPriceDiff` is small and `PctDistMM` is big (MM is on sale), then they buy MM.
+
+
+## ISLR 8.4.9 (e)
+
+```{r}
+prediction <- predict(model, test.set, type = 'class')
+library(knitr)
+kable(table(test.set[,'Purchase'], prediction))
+```
+
+In this case, 160 out of 198 CH are classified correctly, and 64 out of 72 MM are classified correctly. Thus, the test error rate is 46 / 270, which is about 17%.
+
+## ISLR 8.4.9 (f)
+```{r f}
+set.seed(1)
+cv.model <- cv.tree(model, K = 10, FUN = prune.misclass)
+plot(cv.model)
+```
+
+The optimal size of tree is 7.
+
+## ISLR 8.4.9 (g)
+
+```{r}
+# Note: the error rate for tree size = 1 is strange
+plot(cv.model$size, cv.model$dev/270, type = "b", xlab = "Tree Size", ylab = "Classification Error Rate")
+```
+
