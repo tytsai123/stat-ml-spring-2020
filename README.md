@@ -1,5 +1,6 @@
 # STAT 435: Introdution to Statistical Machine Learning (Spring 2020)
-Implementing machine learning methods via R in STAT 435 at University of Washington
+Homework for STAT 435 Introduction to Statistical Machine Learning at University of Washington. <br>
+I implemented many machine learning methods with R.
 
 Homework 1 - 'ksmooth' Implementation
 
